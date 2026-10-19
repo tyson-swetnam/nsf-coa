@@ -1,0 +1,61 @@
+{
+  "meta": {"count": 4, "next_cursor": null},
+  "results": [
+    {
+      "id": "https://openalex.org/W100",
+      "doi": "https://doi.org/10.1234/ALPHA.2025",
+      "title": "Fire regimes &amp; forests",
+      "publication_date": "2025-03-14",
+      "publication_year": 2025,
+      "type": "article",
+      "primary_location": {"source": {"display_name": "Journal of Examples"}},
+      "authorships": [
+        {"author": {"id": "https://openalex.org/A1", "display_name": "Rita Q. Researcher", "orcid": "https://orcid.org/0000-0001-0000-0001"},
+         "institutions": [{"display_name": "University of Example"}]},
+        {"author": {"id": "https://openalex.org/A2", "display_name": "Bob Builder", "orcid": "https://orcid.org/0000-0002-0000-0002"},
+         "institutions": [{"display_name": "Old College"}]},
+        {"author": {"id": "https://openalex.org/A3", "display_name": "Carla de la Cruz", "orcid": null},
+         "institutions": [], "raw_affiliation_strings": ["Instituto Ejemplo, Lima, Peru"]}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W101",
+      "doi": "https://doi.org/10.1234/beta.2024",
+      "title": "A second paper",
+      "publication_date": "2024-01-02",
+      "publication_year": 2024,
+      "type": "article",
+      "authorships": [
+        {"author": {"id": "https://openalex.org/A9", "display_name": "R. Researcher", "orcid": null}, "institutions": []},
+        {"author": {"id": "https://openalex.org/A20", "display_name": "B. Builder", "orcid": null},
+         "institutions": [{"display_name": "Old College"}]},
+        {"author": {"id": "https://openalex.org/A4", "display_name": "Dana Partner", "orcid": null},
+         "institutions": [{"display_name": "Partner Lab"}]}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W102",
+      "doi": null,
+      "title": "Correction to: something",
+      "publication_date": "2025-06-01",
+      "publication_year": 2025,
+      "type": "erratum",
+      "authorships": [
+        {"author": {"id": "https://openalex.org/A1", "display_name": "Rita Q. Researcher"}, "institutions": []},
+        {"author": {"id": "https://openalex.org/A77", "display_name": "Errata Person"}, "institutions": []}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W103",
+      "doi": "https://doi.org/10.1234/old",
+      "title": "An old paper outside the window",
+      "publication_date": "2021-05-05",
+      "publication_year": 2021,
+      "type": "article",
+      "authorships": [
+        {"author": {"id": "https://openalex.org/A1", "display_name": "Rita Q. Researcher"}, "institutions": []},
+        {"author": {"id": "https://openalex.org/A88", "display_name": "Old Friend"}, "institutions": []}
+      ]
+    }
+  ]
+}

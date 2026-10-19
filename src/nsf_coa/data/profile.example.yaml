@@ -1,0 +1,102 @@
+# nsf-coa profile
+# ----------------
+# Everything here is optional except a way to find your work (an ORCID iD,
+# an OpenAlex author ID, a bibliography file, or a web page).
+#
+# This file can hold personal information (Table 2 lists family and business
+# relationships). Keep it out of public repositories.
+
+person:
+  name: "Lastname, Firstname M"        # as NSF wants it: Last, First Middle-initial
+  orcid: 0000-0000-0000-0000
+  # OpenAlex often splits one person into several author IDs. List every one
+  # that is you (find them with: nsf-coa find-author "Firstname Lastname").
+  openalex_ids: []
+  # Other spellings of your name that appear on papers, used to find you in author lists.
+  aliases: []
+  # Table 1: your organizational affiliations in the last 12 months.
+  # Leave last_active blank for current positions. If empty, your ORCID
+  # employment record (or previous COA) is used.
+  affiliations: []
+  #  - name: "Your University"
+  #  - name: "Previous University"
+  #    last_active: 2026-06-30
+
+# Contact email for the Crossref / OpenAlex "polite pool" (faster, more reliable).
+mailto: null
+# Free key from https://help.openalex.org/api/authentication/ ; or set OPENALEX_API_KEY.
+openalex_api_key: null
+
+# Your last COA spreadsheet. Tables 1, 2, 3, 5 and the "C:" rows of Table 4 are
+# carried forward. "A:" rows are re-derived from publications, and any that are
+# missing but still inside the 48-month window are kept and flagged.
+previous_coa: null
+
+window:
+  as_of: null              # default: today
+  coauthor_months: 48      # Table 4
+  editor_months: 24        # Table 5
+  affiliation_months: 12   # Table 1
+
+sources:
+  openalex: true
+  crossref: true           # works whose Crossref metadata carries your ORCID, plus DOI lookups
+  orcid: true              # works and employment on your ORCID record
+  datacite: true           # datasets and software DOIs (Zenodo, Dryad, ...)
+  match_titles: true       # look up DOI-less citations (Google Scholar exports) in Crossref
+  # Google Scholar: on your profile, select all articles -> Export -> BibTeX.
+  bibtex: []               # e.g. [scholar.bib]
+  ris: []
+  csl_json: []
+  # Web pages (CV, lab site, faculty page) that list your papers; DOIs on the page are harvested.
+  urls: []
+  dois: []                 # extra DOIs to include
+
+# Table 2 (R:): people whose personal, family, or business relationship with you
+# would preclude them from reviewing.
+relationships: []
+#  - name: "Doe, Jane A"
+#    relationship: "Spouse"
+#    optional: "jane@example.org"
+
+# Table 3: your Ph.D. advisors (G) and all of your Ph.D. thesis advisees (T). No time limit.
+advisors: []
+#  - type: G
+#    name: "Advisor, Ada B"
+#    affiliation: "University of Somewhere"
+#  - type: T
+#    name: "Student, Sam C"
+#    affiliation: "Agency X"
+#    optional: "sam@example.org"
+
+# Table 4 (C:): collaborators on funded awards, projects, or graduate research
+# in the last 48 months who are not already co-authors. Anyone listed here who
+# is also a co-author is listed once, under C (per the NSF FAQ).
+collaborators: []
+#  - name: "Partner, Pat"
+#    affiliation: "Partner Institute"
+#    last_active: 2026-05-01
+
+# Table 5: editorial boards (B) and co-editors (E) in the last 24 months.
+editorial: []
+#  - type: B
+#    name: "Chief, Edith"
+#    affiliation: "Some University"
+#    journal: "Journal of Examples"
+#    last_active: 2026-01-15
+
+# Remove false positives: names ("Last, First"), ORCID iDs, OpenAlex author IDs, or DOIs.
+exclude: []
+
+# Fix how a person appears. The key is the name as generated; values replace fields.
+# You can also merge name variants, e.g. "Smith, Bill": {name: "Smith, William J"}.
+overrides: {}
+#  "Smith, J": {name: "Smith, Jane Q", affiliation: "New Employer", optional: "jane@new.edu"}
+
+# Work types to ignore (OpenAlex / Crossref / DataCite type names).
+exclude_types: [paratext, erratum, peer-review, retraction]
+
+output:
+  optional_column: orcid     # put "ORCID xxxx" in the Optional column when known; or "none"
+  affiliation: current       # current (OpenAlex last-known institution) | coauthorship
+  large_author_threshold: 50 # flag people who appear only on papers with more authors than this
