@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import logging
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -181,18 +183,46 @@ def _name_matches(name: str, other: str) -> bool:
     return same_person_name(g1, f1, g2, f2)
 
 
-def _find(entries: list[Entry], name: str) -> Entry | None:
+def _similar_name(name: str, other: str) -> bool:
+    """Looser match for hand-typed names: a small family-name typo ("Stavaros" ~ "Stavros")
+    or a dropped leading initial ("Nagy, Chelsea" ~ "Nagy, R Chelsea")."""
+    g1, f1 = parse_name(name)
+    g2, f2 = parse_name(other)
+    full1 = [t for t in given_key(g1) if len(t) > 1]
+    full2 = [t for t in given_key(g2) if len(t) > 1]
+    if not full1 or not full2:
+        return False
+    k1, k2 = family_key(f1), family_key(f2)
+    if k1 == k2:
+        return bool(set(full1) & set(full2)) and (set(full1) <= set(full2) or set(full2) <= set(full1))
+    if full1[0] != full2[0] or min(len(k1), len(k2)) < 5:
+        return False
+    return difflib.SequenceMatcher(None, k1, k2).ratio() >= 0.85
+
+
+def _find(entries: list[Entry], name: str, fuzzy: bool = True) -> tuple[Entry | None, bool]:
+    """Return (matching entry, matched exactly)."""
     for e in entries:
         if _name_matches(e.name, name):
-            return e
-    return None
+            return e, True
+    if fuzzy:
+        for e in entries:
+            if _similar_name(e.name, name):
+                return e, False
+    return None, False
+
+
+def _nsf_name(name: str) -> str:
+    """Normalize a hand-typed name ("Sean Hendryx", "Gillan, Jeffery K.") to "Last, First M"."""
+    given, family = parse_name(name)
+    return format_nsf(given, family) if family else name.strip()
 
 
 def _manual_to_entry(m: ManualEntry, code: str, origin: str) -> Entry:
     given, family = parse_name(m.name)
     return Entry(
         code=(m.code or code).upper(),
-        name=format_nsf(given, family) if "," not in m.name else m.name,
+        name=format_nsf(given, family) if family else m.name,
         affiliation=m.affiliation,
         optional=m.journal if code in {"B", "E"} else m.optional,
         relationship=m.relationship,
@@ -204,7 +234,7 @@ def _manual_to_entry(m: ManualEntry, code: str, origin: str) -> Entry:
 def _prev_to_entry(row: dict) -> Entry:
     return Entry(
         code=row["code"],
-        name=row["name"],
+        name=_nsf_name(row["name"]),
         affiliation=row.get("affiliation", ""),
         optional=row.get("journal") or row.get("optional") or "",
         relationship=row.get("relationship", ""),
@@ -245,8 +275,8 @@ def build_coa(
     (for current affiliations); ``employments`` are ORCID employment records."""
     from nsf_coa.sources.openalex import institution_names
 
-    self_name = profile.name or (previous.self_name if previous else "") or (
-        format_nsf(*orcid_name) if orcid_name else "")
+    self_name = _nsf_name(profile.name or (previous.self_name if previous else "") or (
+        format_nsf(*orcid_name) if orcid_name else ""))
     names = [self_name, *profile.aliases]
     if previous and previous.self_name:
         names.append(previous.self_name)
@@ -373,8 +403,10 @@ def build_coa(
     if previous:
         for row in previous.by_code("A"):
             prev = _prev_to_entry(row)
-            match = _find(coauthors, prev.name)
+            match, exact = _find(coauthors, prev.name)
             if match:
+                if not exact:
+                    match.flags.append(f"matched previous-COA row '{prev.name}' by similar spelling - check")
                 if prev.optional and ("@" in prev.optional or not match.optional):
                     match.optional = prev.optional  # keep a curated email over an ORCID
                 if not match.affiliation and prev.affiliation:
@@ -401,14 +433,21 @@ def build_coa(
         c.code = "C"
         if c.last_active and c.last_active < cutoff:
             c.flags.append(f"last active {c.last_active:%m/%d/%Y} is older than {profile.coauthor_months} months")
+            still, _ = _find(coauthors, c.name, fuzzy=False)
+            if still:
+                c.flags.append("still listed as a co-author (A) from recent publications")
             result.dropped.append(c)
             continue
         if c.origin == "previous COA" and not c.last_active:
             c.flags.append("from previous COA (undated) - confirm collaboration is ongoing")
         # NSF FAQ: co-authors who are also collaborators are listed once, under C.
-        dup = _find(coauthors, c.name)
+        dup, exact = _find(coauthors, c.name)
         if dup:
             coauthors.remove(dup)
+            if not exact:
+                c.flags.append(f"'{c.name}' matched co-author '{dup.name}' by similar spelling; "
+                               "using the publication spelling - check")
+                c.name = dup.name
             c.affiliation = c.affiliation or dup.affiliation
             c.optional = c.optional or dup.optional
             c.orcid = dup.orcid
@@ -421,26 +460,29 @@ def build_coa(
     result.table4 = sorted(result.table4, key=lambda e: (e.code, normalize_text(e.name)))
 
     # ---- Table 1: own affiliations, last 12 months -----------------------
+    # Precedence: profile, then ORCID employment (usually the freshest), then the previous COA.
     t1 = [Entry(code="1", name="", affiliation=m.affiliation or m.name, last_active=m.last_active,
                 origin="profile") for m in profile.affiliations]
+    for emp in employments or []:
+        end = emp.end.end if emp.end else None
+        if end and end < profile.affiliation_cutoff:
+            continue  # long-past positions on the ORCID record are not news
+        t1.append(Entry(code="1", name="", affiliation=emp.organization, last_active=end,
+                        origin="ORCID employment"))
     if previous:
         for a in previous.affiliations:
             t1.append(Entry(code="1", name="", affiliation=a["affiliation"], last_active=a["last_active"],
                             origin="previous COA"))
-    for emp in employments or []:
-        end = emp.end.end if emp.end else None
-        label = emp.organization
-        t1.append(Entry(code="1", name="", affiliation=label, last_active=end, origin="ORCID employment"))
     seen, table1 = set(), []
     for e in t1:
-        key = normalize_text(e.affiliation)
+        key = re.sub(r"^the ", "", normalize_text(e.affiliation))
         if not key or key in seen:
             continue
+        seen.add(key)
         if e.last_active and e.last_active < profile.affiliation_cutoff:
             e.flags.append("ended more than 12 months ago")
             result.dropped.append(e)
             continue
-        seen.add(key)
         if e.last_active and e.last_active >= profile.as_of:
             e.last_active = None  # ongoing
         table1.append(e)

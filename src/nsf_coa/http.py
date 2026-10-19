@@ -115,4 +115,6 @@ def _describe_refusal(url: str, resp: requests.Response) -> str:
         detail = body.get("message") or body.get("error") or ""
     except ValueError:
         detail = resp.text[:200]
+    if len(detail) > 160:
+        detail = detail[:157].rstrip() + "..."
     return f"HTTP {resp.status_code} from {url.split('?')[0]}: {detail}".strip()

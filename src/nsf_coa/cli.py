@@ -82,8 +82,6 @@ def cmd_build(args) -> int:
     previous = read_previous_coa(profile.previous_coa) if profile.previous_coa else None
     if previous:
         print(f"  Previous COA {profile.previous_coa.name}: {len(previous.rows)} coded rows")
-    if profile.affiliations or (previous and previous.affiliations):
-        employments = []  # curated Table 1 wins over ORCID employment history
 
     author_records = {}
     if collection.openalex and profile.affiliation_mode == "current":

@@ -151,3 +151,37 @@ def test_initials_ambiguity_is_flagged(profile):
     j = next(e for e in result.table4 if e.name == "Smith, J")
     assert any("ambiguous" in f for f in j.flags)
     assert {e.name for e in result.table4} == {"Smith, John", "Smith, Jane", "Smith, J"}
+
+
+def test_hand_typed_names_are_normalized_and_fuzzy_matched(profile):
+    from nsf_coa.merge import _nsf_name, _similar_name
+    from nsf_coa.models import AuthorMention, PubDate, Work
+
+    assert _nsf_name("Sean Hendryx") == "Hendryx, Sean"
+    assert _nsf_name("Gillan, Jeffery K.") == "Gillan, Jeffery K"
+    assert _similar_name("Stavaros, Natasha", "Stavros, Natasha")
+    assert _similar_name("Nagy, Chelsea", "Nagy, R Chelsea")
+    assert not _similar_name("Smith, John", "Smyth, Jane")
+    assert not _similar_name("Lee, Ann", "Lew, Ann")  # short family names never fuzzy-match
+
+    me = AuthorMention("Rita Q. Researcher", orcid="0000-0001-0000-0001")
+    works = [Work("paper one here", PubDate(2025, 1, 1), [me, AuthorMention("Natasha Stavros")], doi="10.1111/9")]
+    prof = profile(collaborators=[{"name": "Stavaros, Natasha", "last_active": "2024-01-01"}])
+    result = build_coa(prof, works)
+    (row,) = result.table4
+    assert (row.code, row.name, row.last_active) == ("C", "Stavros, Natasha", dt.date(2025, 1, 1))
+    assert any("similar spelling" in f for f in row.flags)
+
+
+def test_table1_prefers_orcid_end_dates(profile):
+    from nsf_coa.models import PubDate
+    from nsf_coa.sources.orcid import Employment
+
+    prof = profile(person={"name": "Researcher, Rita Q"})
+    prev_like = [Employment("New University", None, None, PubDate(2026, 7, 1), None),
+                 Employment("The Old University", None, None, PubDate(2015, 1, 1), PubDate(2026, 6, 30)),
+                 Employment("Ancient College", None, None, PubDate(2001, 1, 1), PubDate(2005, 1, 1))]
+    result = build_coa(prof, [], employments=prev_like)
+    assert [(e.affiliation, e.last_active) for e in result.table1] == [
+        ("New University", None), ("The Old University", dt.date(2026, 6, 30))]
+    assert result.dropped == []  # long-past ORCID positions are skipped silently
