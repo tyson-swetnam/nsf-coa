@@ -258,6 +258,31 @@ def _merge_manual(primary: list[Entry], extra: list[Entry], by_code: bool = Fals
     return out
 
 
+def _merge_same_person(entries: list[Entry], groups: list[list[str]]) -> list[Entry]:
+    """Combine rows the profile declares to be one person (``same_person``)."""
+    for group in groups:
+        ids = {normalize_orcid(x) or normalize_openalex_id(x) for x in group} - {None}
+        names = [x for x in group if not (normalize_orcid(x) or normalize_openalex_id(x))]
+        members = [e for e in entries if (e.orcid and e.orcid in ids) or (e.openalex_ids & ids)
+                   or any(_name_matches(e.name, n) for n in names)]
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda e: (e.last_active or dt.date.min, len(e.works)), reverse=True)
+        keep = members[0]  # most recent row supplies ORCID and affiliation
+        for other in members[1:]:
+            keep.works = sorted({id(w): w for w in keep.works + other.works}.values(),
+                                key=lambda w: w.date.end if w.date else dt.date.min, reverse=True)
+            keep.openalex_ids |= other.openalex_ids
+            keep.affiliation = keep.affiliation or other.affiliation
+            keep.optional = keep.optional or other.optional
+            keep.orcid = keep.orcid or other.orcid
+            if other.orcid and other.orcid != keep.orcid:
+                keep.flags.append(f"merged with ORCID {other.orcid} (same_person)")
+            entries.remove(other)
+        keep.flags = [f for f in keep.flags if f != "no affiliation found" or not keep.affiliation]
+    return entries
+
+
 def _sort(entries: list[Entry]) -> list[Entry]:
     return sorted(entries, key=lambda e: (e.code, normalize_text(e.name)))
 
@@ -388,7 +413,7 @@ def build_coa(
                 e.optional = ov.get("optional", ov.get("email", e.optional))
                 break
         kept.append(e)
-    coauthors = kept
+    coauthors = _merge_same_person(kept, profile.same_person)
     by_name: dict[str, list[Entry]] = {}
     for e in coauthors:
         by_name.setdefault(normalize_text(e.name), []).append(e)
@@ -431,6 +456,10 @@ def build_coa(
     kept_c = []
     for c in collaborators:
         c.code = "C"
+        if any(_name_matches(c.name, x) for x in excluded_names):
+            c.flags.append("excluded in profile")
+            result.dropped.append(c)
+            continue
         if c.last_active and c.last_active < cutoff:
             c.flags.append(f"last active {c.last_active:%m/%d/%Y} is older than {profile.coauthor_months} months")
             still, _ = _find(coauthors, c.name, fuzzy=False)
@@ -513,7 +542,10 @@ def build_coa(
         t5 = _merge_manual(t5, [_prev_to_entry(r) for r in previous.by_code("B", "E")], by_code=True)
     table5 = []
     for e in t5:
-        if e.last_active and e.last_active < profile.editor_cutoff:
+        if any(_name_matches(e.name, x) for x in excluded_names):
+            e.flags.append("excluded in profile")
+            result.dropped.append(e)
+        elif e.last_active and e.last_active < profile.editor_cutoff:
             e.flags.append(f"last active older than {profile.editor_months} months")
             result.dropped.append(e)
         else:

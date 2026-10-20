@@ -185,3 +185,20 @@ def test_table1_prefers_orcid_end_dates(profile):
     assert [(e.affiliation, e.last_active) for e in result.table1] == [
         ("New University", None), ("The Old University", dt.date(2026, 6, 30))]
     assert result.dropped == []  # long-past ORCID positions are skipped silently
+
+
+def test_same_person_merges_two_orcids(profile):
+    from nsf_coa.models import AuthorMention, PubDate, Work
+
+    me = AuthorMention("Rita Q. Researcher", orcid="0000-0001-0000-0001")
+    works = [
+        Work("first paper here", PubDate(2024, 2, 7), [me, AuthorMention("Greg Chism", orcid="0000-0003-0000-0003")],
+             doi="10.1111/a1"),
+        Work("second paper here", PubDate(2026, 6, 9),
+             [me, AuthorMention("Greg Chism", orcid="0000-0002-0000-0002", affiliations=["Uni A"])], doi="10.1111/a2"),
+    ]
+    assert len(build_coa(profile(), works).table4) == 2  # different ORCIDs are never merged on their own
+    (row,) = build_coa(profile(same_person=[["Chism, Greg"]]), works).table4
+    assert row.orcid == "0000-0002-0000-0002" and row.affiliation == "Uni A"
+    assert row.last_active == dt.date(2026, 6, 9) and len(row.works) == 2
+    assert not any("same name" in f for f in row.flags)

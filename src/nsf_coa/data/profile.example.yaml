@@ -86,12 +86,20 @@ editorial: []
 #    last_active: 2026-01-15
 
 # Remove false positives: names ("Last, First"), ORCID iDs, OpenAlex author IDs, or DOIs.
+# Names are removed from Table 4 (A and C) and Table 5; DOIs remove a whole publication.
 exclude: []
 
 # Fix how a person appears. The key is the name as generated; values replace fields.
 # You can also merge name variants, e.g. "Smith, Bill": {name: "Smith, William J"}.
 overrides: {}
 #  "Smith, J": {name: "Smith, Jane Q", affiliation: "New Employer", optional: "jane@new.edu"}
+
+# Rows that are one person even though the sources disagree, e.g. someone with two
+# ORCID iDs. Each group lists names ("Last, First"), ORCID iDs, or OpenAlex author IDs;
+# a single name merges every row with that name.
+same_person: []
+#  - ["Chism, Greg"]
+#  - ["0000-0001-2345-6789", "0000-0009-8765-4321"]
 
 # Work types to ignore (OpenAlex / Crossref / DataCite type names).
 exclude_types: [paratext, erratum, peer-review, retraction]

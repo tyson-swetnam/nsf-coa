@@ -58,6 +58,7 @@ class Profile:
 
     exclude: list[str] = field(default_factory=list)  # names, ORCIDs, OpenAlex IDs, or DOIs
     overrides: dict[str, dict] = field(default_factory=dict)  # name -> {name, affiliation, optional}
+    same_person: list[list[str]] = field(default_factory=list)  # groups of names/ORCIDs/OpenAlex IDs
     exclude_types: list[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDED_TYPES))
     optional_column: str = "orcid"  # what to put in "Optional (email, Department)": orcid | none
     affiliation_mode: str = "current"  # current (OpenAlex last-known) | coauthorship
@@ -162,6 +163,7 @@ def profile_from_dict(data: dict, base: Path | None = None) -> Profile:
         editorial=_entries(data.get("editorial"), "B"),
         exclude=[str(x) for x in data.get("exclude") or []],
         overrides={str(k): dict(v or {}) for k, v in (data.get("overrides") or {}).items()},
+        same_person=[[str(x) for x in (g if isinstance(g, list) else [g])] for g in data.get("same_person") or []],
         exclude_types=list(data.get("exclude_types", DEFAULT_EXCLUDED_TYPES)),
         optional_column=str(output.get("optional_column", "orcid")),
         affiliation_mode=str(output.get("affiliation", "current")),
