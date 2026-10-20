@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nsf-coa"
+version = "0.1.0"
+description = "Build an NSF Collaborators and Other Affiliations (COA) spreadsheet from open scholarly data (OpenAlex, ORCID, Crossref, DataCite, BibTeX/Google Scholar exports)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "CC0-1.0" }
+authors = [{ name = "Tyson L. Swetnam" }]
+keywords = ["NSF", "COA", "collaborators", "OpenAlex", "ORCID", "Crossref", "grants"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "requests>=2.28",
+    "openpyxl>=3.1",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+nsf-coa = "nsf_coa.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tyson-swetnam/nsf-coa"
+"NSF COA FAQ" = "https://www.nsf.gov/funding/senior-personnel-documents/faq/coa"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nsf_coa = ["data/*.xlsx", "data/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]

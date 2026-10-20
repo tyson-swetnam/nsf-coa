@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- nsf-coa: keep personal COA data out of the repository ----
+# Profiles can contain family/business relationships (Table 2) and emails.
+coa.yaml
+*.coa.yaml
+profiles/
+private/
+output/
+# COA spreadsheets and bibliography exports you generate or download
+*.xlsx
+!src/nsf_coa/data/coa_template.xlsx
+*.bib
+!tests/fixtures/*.bib
