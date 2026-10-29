@@ -109,6 +109,9 @@ def test_xlsx_grows_tables_and_keeps_structure(tmp_path):
     # Template example rows are gone.
     values = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
     assert not any("Alphaman" in v for v in values)
+    # Including the example email, which the template stores as a hyperlink.
+    assert not any("example@example.com" in v for v in values)
+    assert not any(c.hyperlink for row in ws.iter_rows() for c in row)
 
 
 def test_template_examples_are_ignored_by_reader():

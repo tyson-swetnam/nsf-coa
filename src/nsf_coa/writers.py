@@ -107,6 +107,7 @@ def write_xlsx(result: COAResult, path: str | Path, template: str | Path | None 
         for r in range(header + 1, last + 1):  # clear the template's example rows
             for c in range(1, width + 1):
                 ws.cell(r, c).value = None
+                ws.cell(r, c).hyperlink = None  # else openpyxl writes the link target back as the value
         for i, e in enumerate(entries):
             r = header + 1 + i
             if number == 1:
