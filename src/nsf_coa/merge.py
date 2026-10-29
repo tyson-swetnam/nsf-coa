@@ -243,6 +243,16 @@ def _prev_to_entry(row: dict) -> Entry:
     )
 
 
+def _apply_override(e: Entry, overrides: dict) -> Entry:
+    for key, ov in overrides.items():
+        if _name_matches(e.name, key) or (ov.get("name") and _name_matches(e.name, ov["name"])):
+            e.name = _nsf_name(ov["name"]) if ov.get("name") else e.name
+            e.affiliation = ov.get("affiliation", e.affiliation)
+            e.optional = ov.get("optional", ov.get("email", e.optional))
+            break
+    return e
+
+
 def _merge_manual(primary: list[Entry], extra: list[Entry], by_code: bool = False) -> list[Entry]:
     out = list(primary)
     for e in extra:
@@ -290,6 +300,9 @@ def build_coa(
                     if normalize_orcid(x) or normalize_openalex_id(x)}
     excluded_names = [x for x in profile.exclude if not normalize_doi(x) and not (normalize_orcid(x) or normalize_openalex_id(x))]
     override_names = {k: v for k, v in profile.overrides.items()}
+
+    def prev_entry(row: dict) -> Entry:  # overrides also fix hand-typed rows from the previous COA
+        return _apply_override(_prev_to_entry(row), override_names)
 
     # ---- Table 4 (A): co-authors from publications ----------------------
     mentions: list[Mention] = []
@@ -381,13 +394,7 @@ def build_coa(
             e.flags.append("excluded in profile")
             result.dropped.append(e)
             continue
-        for key, ov in override_names.items():
-            if _name_matches(e.name, key) or (ov.get("name") and _name_matches(e.name, ov["name"])):
-                e.name = ov.get("name", e.name)
-                e.affiliation = ov.get("affiliation", e.affiliation)
-                e.optional = ov.get("optional", ov.get("email", e.optional))
-                break
-        kept.append(e)
+        kept.append(_apply_override(e, override_names))
     coauthors = kept
     by_name: dict[str, list[Entry]] = {}
     for e in coauthors:
@@ -402,7 +409,7 @@ def build_coa(
     cutoff = profile.coauthor_cutoff
     if previous:
         for row in previous.by_code("A"):
-            prev = _prev_to_entry(row)
+            prev = prev_entry(row)
             match, exact = _find(coauthors, prev.name)
             if match:
                 if not exact:
@@ -427,7 +434,7 @@ def build_coa(
     # ---- Table 4 (C): collaborators (grants, projects) ----------------------
     collaborators = [_manual_to_entry(m, "C", "profile") for m in profile.collaborators]
     if previous:
-        collaborators = _merge_manual(collaborators, [_prev_to_entry(r) for r in previous.by_code("C")])
+        collaborators = _merge_manual(collaborators, [prev_entry(r) for r in previous.by_code("C")])
     kept_c = []
     for c in collaborators:
         c.code = "C"
@@ -491,7 +498,7 @@ def build_coa(
     # ---- Table 2: relationships ------------------------------------------
     t2 = [_manual_to_entry(m, "R", "profile") for m in profile.relationships]
     if previous:
-        t2 = _merge_manual(t2, [_prev_to_entry(r) for r in previous.by_code("R")])
+        t2 = _merge_manual(t2, [prev_entry(r) for r in previous.by_code("R")])
     for e in t2:
         e.code = "R"
     result.table2 = _sort(t2)
@@ -499,9 +506,9 @@ def build_coa(
     # ---- Table 3: Ph.D. advisors (G) and advisees (T) --------------------
     t3 = [_manual_to_entry(m, "G", "profile") for m in profile.advisors]
     if previous:
-        t3 = _merge_manual(t3, [_prev_to_entry(r) for r in previous.by_code("G", "T")], by_code=True)
+        t3 = _merge_manual(t3, [prev_entry(r) for r in previous.by_code("G", "T")], by_code=True)
         for r in previous.by_code("P"):
-            p = _prev_to_entry(r)
+            p = prev_entry(r)
             p.flags.append("category P (postdoc) no longer exists; list in Table 2 only if the relationship "
                            "would preclude review")
             result.dropped.append(p)
@@ -510,7 +517,7 @@ def build_coa(
     # ---- Table 5: editorial, last 24 months ------------------------------
     t5 = [_manual_to_entry(m, "B", "profile") for m in profile.editorial]
     if previous:
-        t5 = _merge_manual(t5, [_prev_to_entry(r) for r in previous.by_code("B", "E")], by_code=True)
+        t5 = _merge_manual(t5, [prev_entry(r) for r in previous.by_code("B", "E")], by_code=True)
     table5 = []
     for e in t5:
         if e.last_active and e.last_active < profile.editor_cutoff:

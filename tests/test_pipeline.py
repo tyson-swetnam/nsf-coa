@@ -141,6 +141,25 @@ def test_exclude_and_override(tmp_path, load_json, profile):
     assert names["Builder, Bob"].affiliation == "New Employer"
 
 
+def test_overrides_apply_to_previous_coa_rows(tmp_path, profile):
+    from nsf_coa.models import AuthorMention, PubDate, Work
+
+    prev = COAResult(self_name="Researcher, Rita Q", as_of=dt.date(2025, 1, 1))
+    prev.table3 = [Entry("T", "Jeffery Gillan", affiliation="Uni")]
+    prev.table4 = [Entry("A", "Gillan, Jeffery K", affiliation="Uni", last_active=dt.date(2024, 11, 1)),
+                   Entry("C", "Cook, Edward", affiliation="Lahmont Doherty", last_active=dt.date(2025, 1, 1))]
+    path = write_xlsx(prev, tmp_path / "prev.xlsx")
+    me = AuthorMention("Rita Q. Researcher", orcid="0000-0001-0000-0001")
+    works = [Work("paper one here", PubDate(2026, 1, 1), [me, AuthorMention("Jeffrey K. Gillan")], doi="10.1111/9")]
+    prof = profile(overrides={"Gillan, Jeffery": {"name": "Gillan, Jeffrey K"},
+                              "Cook, Edward": {"affiliation": "Lamont-Doherty Earth Observatory"}})
+    result = build_coa(prof, works, read_previous_coa(path))
+    assert [(e.code, e.name, e.affiliation) for e in result.table4] == [
+        ("A", "Gillan, Jeffrey K", "Uni"), ("C", "Cook, Edward", "Lamont-Doherty Earth Observatory")]
+    assert not any("carried over" in f for f in result.table4[0].flags)  # merged, not duplicated
+    assert [e.name for e in result.table3] == ["Gillan, Jeffrey K"]
+
+
 def test_initials_ambiguity_is_flagged(profile):
     from nsf_coa.models import AuthorMention, PubDate, Work
 
